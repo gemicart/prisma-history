@@ -1,6 +1,6 @@
 const actions = ['update', 'delete', 'upsert', 'deleteMany', 'updateMany'];
 
-const miidleware = (prisma) => {
+const middleware = (prisma) => {
   return async (params, next) => {
     if (!actions.includes(params.action) || params?.args?.skipHistory) {
       if (params?.args?.skipHistory) {
@@ -65,6 +65,7 @@ const miidleware = (prisma) => {
             result2 = await tx[modelName].update({
               where: params.args.where,
               data: params.args.update,
+              skipHistory: true,
             });
           }
           await tx[modelHistoryName].create({
@@ -119,4 +120,4 @@ const miidleware = (prisma) => {
   };
 };
 
-module.exports = miidleware;
+module.exports = middleware;
