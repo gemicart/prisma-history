@@ -1,4 +1,4 @@
-const prismaHistoryMiddleware = require('prisma-history-middleware');
+const prismaHistoryMiddleware = require('./src/middleware');
 
 module.exports = {
   prismaHistoryMiddleware,
