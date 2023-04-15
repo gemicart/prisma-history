@@ -1,7 +1,10 @@
 const actions = ['update', 'delete', 'upsert', 'deleteMany', 'updateMany'];
 
-const middleware = (prisma) => {
+const middleware = (prisma, checkfn) => {
   return async (params, next) => {
+    if (checkfn) {
+      await checkfn(params);
+    }
     if (!actions.includes(params.action) || params?.args?.skipHistory) {
       if (params?.args?.skipHistory) {
         delete params.args.skipHistory;
@@ -23,6 +26,10 @@ const middleware = (prisma) => {
           if (!result) {
             return;
           }
+          params.args.data = {
+            ...params.args.data,
+            HistoryOperation: 'UPDATE',
+          };
           const result2 = await tx[modelName].update({
             ...params.args,
             skipHistory: true,
@@ -41,6 +48,7 @@ const middleware = (prisma) => {
             ...params.args,
             skipHistory: true,
           });
+          result.HistoryOperation = 'DELETE';
           await tx[modelHistoryName].create({
             data: {
               ...result,
@@ -68,11 +76,14 @@ const middleware = (prisma) => {
               skipHistory: true,
             });
           }
-          await tx[modelHistoryName].create({
-            data: {
-              ...result,
-            },
-          });
+          if (!result2) {
+            result2.HistoryOperation = 'UPDATE';
+            await tx[modelHistoryName].create({
+              data: {
+                ...result,
+              },
+            });
+          }
           return result2;
         });
         break;
@@ -91,7 +102,10 @@ const middleware = (prisma) => {
             skipHistory: true,
           });
           await tx[modelHistoryName].createMany({
-            data: result,
+            data: result.map((item) => {
+              item.HistoryOperation = 'DELETE';
+              return item;
+            }),
           });
           return result2;
         });
@@ -111,7 +125,10 @@ const middleware = (prisma) => {
             skipHistory: true,
           });
           await tx[modelHistoryName].createMany({
-            data: result,
+            data: result.map((item) => {
+              item.HistoryOperation = 'UPDATE';
+              return item;
+            }),
           });
           return result2;
         });

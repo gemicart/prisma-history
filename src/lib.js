@@ -133,6 +133,12 @@ const createHistoryModel = (ast, enums, model) => {
     comment: null,
   });
 
+  copyModel.members.push({
+    kind: 'field',
+    name: { kind: 'name', value: 'HistoryOperation' },
+    type: { kind: 'typeId', name: { kind: 'name', value: 'String' } },
+  });
+
   ast.declarations.push(copyModel);
 };
 
