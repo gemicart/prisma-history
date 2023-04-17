@@ -60,7 +60,15 @@ const deleteHistoryModels = (ast) => {
   }
 };
 
-const createHistoryModel = (ast, enums, model) => {
+const getHistoryfeilds = (ast) => {
+  const models = getModels(ast);
+  if (!models.History) {
+    return [];
+  }
+  return ast.declarations[models.History.index].members;
+};
+
+const createHistoryModel = (ast, enums, model, historyfeilds) => {
   const copyModel = JSON.parse(JSON.stringify(ast.declarations[model.index]));
   copyModel.name.value = copyModel.name.value + '_History';
   for (memberIndex in copyModel.members) {
@@ -139,6 +147,10 @@ const createHistoryModel = (ast, enums, model) => {
     type: { kind: 'typeId', name: { kind: 'name', value: 'String' } },
   });
 
+  historyfeilds.map((field) => {
+    copyModel.members.push(field);
+  });
+
   ast.declarations.push(copyModel);
 };
 
@@ -161,4 +173,5 @@ module.exports = {
   getEnums,
   deleteHistoryModels,
   createHistoryModel,
+  getHistoryfeilds,
 };
