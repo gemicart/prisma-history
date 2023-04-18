@@ -29,6 +29,7 @@ const update_fn = async ({ tx, modelName, params, historyData }) => {
 };
 
 const delete_fn = async ({ tx, modelName, params, historyData }) => {
+  const modelHistoryName = modelName + '_History';
   const result = await tx[modelName].delete({
     ...params.args,
     skipHistory: true,
@@ -44,6 +45,7 @@ const delete_fn = async ({ tx, modelName, params, historyData }) => {
 };
 
 const upsert_fn = async ({ tx, modelName, params, historyData }) => {
+  const modelHistoryName = modelName + '_History';
   const result = await tx[modelName].findUnique({
     where: {
       ...params.args.where,
@@ -74,6 +76,7 @@ const upsert_fn = async ({ tx, modelName, params, historyData }) => {
 };
 
 const deleteMany_fn = async ({ tx, modelName, params, historyData }) => {
+  const modelHistoryName = modelName + '_History';
   const result = await tx[modelName].findMany({
     where: {
       ...params.args.where,
@@ -97,6 +100,7 @@ const deleteMany_fn = async ({ tx, modelName, params, historyData }) => {
 };
 
 const updateMany_fn = async ({ tx, modelName, params, historyData }) => {
+  const modelHistoryName = modelName + '_History';
   const result = await tx[modelName].findMany({
     where: {
       ...params.args.where,
