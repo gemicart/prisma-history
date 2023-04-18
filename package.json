@@ -1,6 +1,6 @@
 {
   "name": "@gemicart/prisma-history",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "A module for Prisma that generates history models to track changes made to data in the original models, with a middleware that automatically updates them.",
   "main": "index.js",
   "keywords": [

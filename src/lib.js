@@ -82,18 +82,19 @@ const createHistoryModel = (ast, enums, model, historyfeilds) => {
       SetMemberTypeString(member);
     }
     if (!prismaMainTypes[memberType]) {
-      delete copyModel.members[memberIndex];
-    } else {
-      if (member.type.kind !== 'optional') {
-        const newType = {
-          kind: 'optional',
-          type: { ...member.type },
-        };
-
-        member.type = newType;
+      if (!enums[memberType]) {
+        delete copyModel.members[memberIndex];
+        continue;
       }
-      fixAttributes(member.attributes);
     }
+    if (member.type.kind !== 'optional' && member.type.kind !== 'list') {
+      const newType = {
+        kind: 'optional',
+        type: { ...member.type },
+      };
+      member.type = newType;
+    }
+    fixAttributes(member.attributes);
   }
 
   copyModel.members.push({
