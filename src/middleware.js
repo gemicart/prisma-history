@@ -63,8 +63,8 @@ const upsert_fn = async ({ tx, modelName, params, historyData }) => {
       skipHistory: true,
     });
   }
-  if (!result2) {
-    result2.HistoryOperation = 'UPDATE';
+  if (result) {
+    result.HistoryOperation = 'UPDATE';
     await tx[modelHistoryName].create({
       data: {
         ...result,
