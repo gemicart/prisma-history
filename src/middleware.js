@@ -134,14 +134,14 @@ const fnlist = {
 const middleware = (checkfn) => {
   return (prisma) => {
     return async (params, next) => {
-      if (checkfn) {
+      if (checkfn && !params?.args?.skipHistory) {
         await checkfn(params);
       }
       let historyData = {};
-      if (params.history) {
-        historyData = params.history;
+      if (params.args.history) {
+        historyData = params.args.history;
+        delete params.args.history;
       }
-      delete params.history;
       if (!actions.includes(params.action) || params?.args?.skipHistory) {
         if (params?.args?.skipHistory) {
           delete params.args.skipHistory;
