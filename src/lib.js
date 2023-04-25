@@ -7,6 +7,7 @@ const prismaMainTypes = {
   Decimal: 'Decimal',
   DateTime: 'DateTime',
   Bytes: 'Bytes',
+  Json: 'Json',
 };
 
 const attrToRemove = {
