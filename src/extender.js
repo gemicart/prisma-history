@@ -1,214 +1,162 @@
-const validOperations = ['updateMany', 'update', 'upsert', 'deleteMany', 'delete'];
+const { Prisma } = require('@prisma/client');
 
-async function updateManyOverride(tx, params, historyData) {
-  const { model } = params;
+const updateOverride = async (tx, model, args, historyData) => {
+  const find = await tx[model].findUnique({ where: args.where });
 
-  const entity = tx[model];
-  const foundRecord = await entity.findMany({
-    where: {
-      ...params.args.where,
-    },
-  });
-
-  // if no records found do not update history
-  if (foundRecord.length === 0) {
-    return { count: 0 };
-  }
-  const updatedEntity = await tx[model].updateMany({
-    ...params.args,
-    skipHistory: true,
-  });
-
-  const historyModel = model + '_History';
-  const historyEntity = tx[historyModel];
-
-  await historyEntity.createMany({
-    data: foundRecord.map((item) => {
-      item.HistoryOperation = 'UPDATE';
-      item = { ...item, ...historyData };
-      return item;
-    }),
-  });
-  return updatedEntity;
-}
-
-async function updateOverride(tx, params, historyData) {
-  const { model } = params;
-  const entity = tx[model];
-
-  const foundRecord = await entity.findUnique({
-    where: {
-      ...params.args.where,
-    },
-  });
-  if (!foundRecord) {
-    return;
-  }
-  params.args.data = {
-    ...params.args.data,
-  };
-  const updatedRecord = await entity.update({
-    ...params.args,
-    skipHistory: true,
-  });
-
-  const historyModel = model + '_History';
-  const historyEntity = tx[historyModel];
-
-  await historyEntity.create({
+  await tx[`${model}_History`].create({
     data: {
-      ...foundRecord,
+      ...find,
       ...historyData,
       HistoryOperation: 'UPDATE',
     },
   });
-  return updatedRecord;
-}
 
-async function deleteOverride(tx, params, historyData) {
-  const { model } = params;
-  const entity = tx[model];
+  return await tx[model].update(args);
+};
 
-  const deletedRecord = await entity.delete({
-    ...params.args,
-    skipHistory: true,
+const updateManyOverride = async (tx, model, args, historyData) => {
+  const find = await tx[model].findMany({ where: args.where });
+
+  if (find.length === 0) {
+    return { count: 0 };
+  }
+
+  await tx[`${model}_History`].createMany({
+    data: find.map((item) => {
+      return { ...item, HistoryOperation: 'UPDATE', ...historyData };
+    }),
   });
 
-  const historyModel = model + '_History';
-  const historyEntity = tx[historyModel];
+  return await tx[model].updateMany(args);
+};
 
-  await historyEntity.create({
+const deleteOverride = async (tx, model, args, historyData) => {
+  const find = await tx[model].findUnique({ where: args.where });
+
+  await tx[`${model}_History`].create({
     data: {
-      ...deletedRecord,
+      ...find,
       ...historyData,
       HistoryOperation: 'DELETE',
     },
   });
-  return deletedRecord;
-}
 
-async function upsertOverride(tx, params, historyData) {
-  const { model, args } = params;
-  const entity = tx[model];
+  return await tx[model].delete(args);
+};
 
-  console.log('upsertOverride', args);
+const deleteManyOverride = async (tx, model, args, historyData) => {
+  const find = await tx[model].findMany({ where: args.where });
 
-  const foundRecord = await entity.findUnique({
-    where: {
-      ...args.where,
-    },
+  if (find.length === 0) {
+    return { count: 0 };
+  }
+
+  await tx[`${model}_History`].createMany({
+    data: find.map((item) => {
+      return { ...item, HistoryOperation: 'DELETE', ...historyData };
+    }),
   });
 
-  let upsertedResource;
-  if (!foundRecord) {
-    // if not found create new record
-    upsertedResource = await entity.create({
-      data: params.args.create,
+  return await tx[model].deleteMany(args);
+};
+
+const upsertOverride = async (tx, model, args, historyData) => {
+  const find = await tx[model].findUnique({ where: args.where });
+
+  if (!find) {
+    return tx[model].create({
+      data: args.create,
     });
   } else {
-    // if found update record and create history record
-    upsertedResource = await entity.update({
-      where: params.args.where,
-      data: params.args.update,
-      skipHistory: true,
-    });
-
-    const historyModel = model + '_History';
-    const historyEntity = tx[historyModel];
-
-    await historyEntity.create({
+    await tx[`${model}_History`].create({
       data: {
-        ...foundRecord,
+        ...find,
         ...historyData,
         HistoryOperation: 'UPDATE',
       },
     });
+    return await tx[model].update({
+      where: args.where,
+      data: args.update,
+    });
   }
-  return upsertedResource;
-}
+};
 
-async function deleteManyOverride(tx, params, historyData) {
-  const { model } = params;
-  const entity = tx[model];
-
-  const foundResource = await entity.findMany({
-    where: {
-      ...params.args.where,
-    },
-  });
-  if (foundResource.length === 0) {
-    return { count: 0 };
-  }
-  const deletedResource = await entity.deleteMany({
-    ...params.args,
-    skipHistory: true,
-  });
-
-  const historyModel = model + '_History';
-  const historyEntity = tx[historyModel];
-
-  await historyEntity.createMany({
-    data: foundResource.map((item) => {
-      item = { ...item, ...historyData, HistoryOperation: 'DELETE' };
-      return item;
-    }),
-  });
-  return deletedResource;
-}
-
-const operationOverrideMap = {
-  updateMany: updateManyOverride,
+const operations = {
   update: updateOverride,
-  upsert: upsertOverride,
-  deleteMany: deleteManyOverride,
+  updateMany: updateManyOverride,
   delete: deleteOverride,
+  deleteMany: deleteManyOverride,
+  upsert: upsertOverride,
+};
+
+const handleOperation = async (context, model, args, operation) => {
+  const historyData = args.history || {};
+  if (args.history) {
+    delete args.history;
+  }
+
+  if (context.$parent.$transaction) {
+    return context.$parent.$transaction(async (tx) => {
+      return operations[operation](tx, model, args, historyData);
+    });
+  } else {
+    return operations[operation](context.$parent, model, args, historyData);
+  }
 };
 
 function extender(prisma, checkfn) {
-  const extendedPrisma = prisma.$extends({
-    query: {
-      async $allOperations(params) {
-        const { model, operation, args, query } = params;
-
-        if (checkfn && !args?.skipHistory) {
-          await checkfn({ model, operation, args, query });
-        }
-
-        let historyData = {};
-
-        if (args.history) {
-          historyData = args.history;
-          delete args.history;
-        }
-
-        if (!validOperations.includes(operation) || args?.skipHistory) {
-          if (args?.skipHistory) {
-            delete args.skipHistory;
+  return prisma.$extends({
+    model: {
+      $allModels: {
+        async update(args) {
+          const context = Prisma.getExtensionContext(this);
+          const model = context.$name;
+          if (checkfn) {
+            await checkfn({ model, operation: 'update', args, context });
           }
-          return await query(args);
-        }
 
-        const modelName = model.charAt(0).toLowerCase() + model.slice(1);
-        const modifiedParams = {
-          model: modelName,
-          operation,
-          args,
-          query,
-        };
+          return handleOperation(context, model, args, 'update');
+        },
+        async updateMany(args) {
+          const context = Prisma.getExtensionContext(this);
+          const model = context.$name;
+          if (checkfn) {
+            await checkfn({ model, operation: 'updateMany', args, context });
+          }
 
-        const overrideFn = operationOverrideMap[operation];
+          return handleOperation(context, model, args, 'updateMany');
+        },
+        async delete(args) {
+          const context = Prisma.getExtensionContext(this);
+          const model = context.$name;
+          if (checkfn) {
+            await checkfn({ model, operation: 'delete', args, context });
+          }
 
-        // if transaction is available, use it
-        if (extendedPrisma.$transaction) {
-          return await extendedPrisma.$transaction((tx) => overrideFn(tx, modifiedParams, historyData));
-        } else {
-          return await overrideFn(extendedPrisma, modifiedParams, historyData);
-        }
+          return handleOperation(context, model, args, 'delete');
+        },
+        async deleteMany(args) {
+          const context = Prisma.getExtensionContext(this);
+          const model = context.$name;
+          if (checkfn) {
+            await checkfn({ model, operation: 'deleteMany', args, context });
+          }
+
+          return handleOperation(context, model, args, 'deleteMany');
+        },
+        async upsert(args) {
+          const context = Prisma.getExtensionContext(this);
+          const model = context.$name;
+          if (checkfn) {
+            await checkfn({ model, operation: 'upsert', args, context });
+          }
+
+          return handleOperation(context, model, args, 'upsert');
+        },
       },
     },
   });
-
-  return extendedPrisma;
 }
 
 module.exports = extender;
