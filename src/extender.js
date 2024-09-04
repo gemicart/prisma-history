@@ -68,6 +68,9 @@ const upsertOverride = async (tx, model, args, historyData) => {
       data: args.create,
     });
   } else {
+    if (JSON.parse(args.update) === JSON.parse({})) {
+      return find;
+    }
     await tx[`${model}_History`].create({
       data: {
         ...find,
